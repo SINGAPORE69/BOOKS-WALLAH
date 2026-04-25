@@ -237,6 +237,8 @@
         // PDF & RENDER ENGINE
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         let pdfDoc = null, pageNum = 1, pageRendering = false, pageNumPending = null, baseScale = 1, userScale = 0, currentBookId = '';
+        let currentPageText = ''; // NEW: Holds extracted text for TTS
+
         const canvas = document.getElementById('the-canvas'), ctx = canvas.getContext('2d'), hlCanvas = document.getElementById('highlight-canvas'), hlCtx = hlCanvas.getContext('2d'), textLayerDiv = document.getElementById('text-layer'), cropBox = document.getElementById('crop-box');
 
         const renderPage = num => {
@@ -253,16 +255,21 @@
                 page.render({ canvasContext: ctx, transform: ratio !== 1 ? [ratio,0,0,ratio,0,0] : null, viewport }).promise.then(() => {
                     pageRendering = false; loadHighlights();
                     if (pageNumPending !== null) { renderPage(pageNumPending); pageNumPending = null; }
-                    page.getTextContent().then(txt => pdfjsLib.renderTextLayer({ textContent: txt, container: textLayerDiv, viewport, textDivs: [] }));
+                    
+                    // NEW: Extract clean text directly for AudioBook
+                    page.getTextContent().then(txt => {
+                        pdfjsLib.renderTextLayer({ textContent: txt, container: textLayerDiv, viewport, textDivs: [] });
+                        currentPageText = txt.items.map(item => item.str).join(' '); // Safe string generation
+                    });
                 });
                 document.getElementById('page_num_input').value = num; localStorage.setItem(`progress_${currentBookId}`, num);
             });
         };
 
         const queueRender = num => { if(pageRendering) pageNumPending = num; else { hlCtx.clearRect(0,0,hlCanvas.width,hlCanvas.height); renderPage(num); } };
-        document.getElementById('prev').onclick = () => { if(pageNum > 1) queueRender(--pageNum); };
-        document.getElementById('next').onclick = () => { if(pageNum < pdfDoc.numPages) queueRender(++pageNum); };
-        document.getElementById('page_num_input').onchange = function() { let p = parseInt(this.value); if(p >= 1 && p <= pdfDoc.numPages) queueRender(pageNum = p); else this.value = pageNum; };
+        document.getElementById('prev').onclick = () => { if(pageNum > 1) { stopTTS(); queueRender(--pageNum); } };
+        document.getElementById('next').onclick = () => { if(pageNum < pdfDoc.numPages) { stopTTS(); queueRender(++pageNum); } };
+        document.getElementById('page_num_input').onchange = function() { let p = parseInt(this.value); if(p >= 1 && p <= pdfDoc.numPages) { stopTTS(); queueRender(pageNum = p); } else this.value = pageNum; };
         function zoomIn() { userScale += 0.2; queueRender(pageNum); } function zoomOut() { if(baseScale+userScale > 0.6) { userScale -= 0.2; queueRender(pageNum); } }
         function togglePDFNightMode() { canvas.classList.toggle('pdf-night-mode'); }
         function toggleFullScreen() { if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
@@ -280,9 +287,9 @@
             pageNum = startPg ? parseInt(startPg) : parseInt(localStorage.getItem(`progress_${id}`) || 1);
             pdfjsLib.getDocument(url).promise.then(doc => {
                 pdfDoc = doc; document.getElementById('page_count').textContent = doc.numPages; document.getElementById('page_num_input').max = doc.numPages;
-                doc.getOutline().then(out => { let l = document.getElementById('toc-list'); l.innerHTML = out ? out.map(i => `<div class="toc-item" onclick="goToTOCDest('${i.dest}')">${i.title}</div>`).join('') : '<p>No Index</p>'; });
+                doc.getOutline().then(out => { let l = document.getElementById('toc-list'); l.innerHTML = out ? out.map(i => `<div class="toc-item" onclick="goToTOCDest('${i.dest}')">${i.title}</div>`).join('') : '<p>No Index available</p>'; });
                 renderPage(pageNum);
-            }).catch(e => alert("PDF Error"));
+            }).catch(e => alert("PDF Loading Error!"));
         }
         function closePDF() { document.getElementById('pdf-viewer-container').style.display = 'none'; document.getElementById('dashboard').style.display = 'block'; stopTTS(); clearInterval(sessionInterval); }
 
@@ -292,7 +299,7 @@
             currentMode = m; if(c) currentColor = c; 
             document.getElementById('btn-text').classList.toggle('active-tool', m==='text');
             hlCanvas.classList.toggle('unselectable', m==='text'); textLayerDiv.classList.toggle('selectable', m==='text');
-            if(m==='crop') alert("Draw a box to crop & search on Google Lens!");
+            if(m==='crop') alert("Crop Mode: Drag on screen to crop and search on Google Lens!");
         }
 
         function getPos(e) { const r = hlCanvas.getBoundingClientRect(); let x = e.touches ? e.touches[0].clientX : e.clientX, y = e.touches ? e.touches[0].clientY : e.clientY; return { px: x-r.left, py: y-r.top, nx: (x-r.left)/r.width, ny: (y-r.top)/r.height }; }
@@ -304,7 +311,7 @@
             const r = canvas.getBoundingClientRect(), sX = canvas.width/r.width, sY = canvas.height/r.height;
             let oc = document.createElement('canvas'); oc.width = w*sX; oc.height = h*sY; let ctx = oc.getContext('2d'); ctx.fillStyle="white"; ctx.fillRect(0,0,oc.width,oc.height);
             ctx.drawImage(canvas, x*sX, y*sY, oc.width, oc.height, 0, 0, oc.width, oc.height); ctx.drawImage(hlCanvas, x*sX, y*sY, oc.width, oc.height, 0, 0, oc.width, oc.height);
-            oc.toBlob(b => { try{ navigator.clipboard.write([new ClipboardItem({"image/png":b})]).then(()=>{ alert("Copied! Paste in Google Lens."); window.open("https://lens.google.com/","_blank"); }).catch(()=>fw(b)); }catch(e){fw(b);} }, 'image/png');
+            oc.toBlob(b => { try{ navigator.clipboard.write([new ClipboardItem({"image/png":b})]).then(()=>{ alert("Image Copied! Paste it in Google Lens tab."); window.open("https://lens.google.com/","_blank"); }).catch(()=>fw(b)); }catch(e){fw(b);} }, 'image/png');
             function fw(b){ let a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="crop.png"; a.click(); setTimeout(()=>window.open("https://lens.google.com/","_blank"), 500); }
         }
 
@@ -319,21 +326,43 @@
         ['mousemove','touchmove'].forEach(e => hlCanvas.addEventListener(e, dDraw, {passive:false}));
         ['mouseup','touchend','mouseout'].forEach(e => hlCanvas.addEventListener(e, eDraw));
 
-        function addBookmark() { let k = `bm_${currentBookId}`, b = JSON.parse(localStorage.getItem(k)||'[]'); if(!b.includes(pageNum)){ b.push(pageNum); localStorage.setItem(k, JSON.stringify(b.sort((x,y)=>x-y))); alert('Bookmarked!'); } }
+        function addBookmark() { let k = `bm_${currentBookId}`, b = JSON.parse(localStorage.getItem(k)||'[]'); if(!b.includes(pageNum)){ b.push(pageNum); localStorage.setItem(k, JSON.stringify(b.sort((x,y)=>x-y))); alert('Page Bookmarked!'); } }
 
         // EXTRAS: Share, TTS, Timer, Music
-        function shareDeepLink() { let u = `${window.location.origin}${window.location.pathname}?book=${currentBookId}&page=${pageNum}`; navigator.share ? navigator.share({url:u}) : prompt("Copy link:", u); }
+        function shareDeepLink() { let u = `${window.location.origin}${window.location.pathname}?book=${currentBookId}&page=${pageNum}`; navigator.share ? navigator.share({url:u}) : prompt("Copy this link to share:", u); }
         function checkDeepLink() { let p = new URLSearchParams(window.location.search); if(p.has('book')) { let b = libraryData.flatMap(a=>a.books).find(x=>x.id===p.get('book')); if(b) openPDF(b.id, b.url, p.get('page')); } }
         
+        // --- FIXED AUDIOBOOK TTS LOGIC ---
         let sp = new SpeechSynthesisUtterance(), tts = false;
-        function toggleTTS() { if(!tts){ sp.text = textLayer.innerText; if(!sp.text) return alert("No text"); sp.lang='hi-IN'; window.speechSynthesis.speak(sp); document.getElementById('tts-btn').innerHTML='<i class="fas fa-stop"></i>'; tts=true; } else stopTTS(); }
-        function stopTTS() { window.speechSynthesis.cancel(); document.getElementById('tts-btn').innerHTML='<i class="fas fa-play"></i> Listen'; tts=false; }
+        function toggleTTS() { 
+            if(!tts) { 
+                window.speechSynthesis.cancel(); // Clear any pending speech
+                if(!currentPageText || currentPageText.trim() === '') {
+                    return alert("Is page par padhne ke liye koi text nahi mila!");
+                }
+                sp.text = currentPageText; 
+                sp.lang = 'hi-IN'; 
+                sp.rate = 0.9;
+                window.speechSynthesis.speak(sp); 
+                document.getElementById('tts-btn').innerHTML = '<i class="fas fa-stop"></i> Stop'; 
+                tts = true; 
+            } else {
+                stopTTS(); 
+            } 
+        }
+        function stopTTS() { 
+            window.speechSynthesis.cancel(); 
+            document.getElementById('tts-btn').innerHTML = '<i class="fas fa-play"></i> Listen'; 
+            tts = false; 
+        }
+        // Auto reset button when speech ends
+        sp.onend = function() { stopTTS(); };
         
         let mus = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); mus.loop=true;
         function toggleMusic() { mus.paused ? mus.play() : mus.pause(); }
         
         let tmr; function toggleTimer() { let m=document.getElementById('timer-modal'); m.style.display=m.style.display==='block'?'none':'block'; }
-        function startTimer() { clearInterval(tmr); let s=1500; tmr = setInterval(()=>{ s--; let m=Math.floor(s/60), rs=s%60; document.getElementById('timer-display').innerText=`${m}:${rs<10?'0'+rs:rs}`; if(s<=0){ clearInterval(tmr); alert("Break time!");} }, 1000); }
+        function startTimer() { clearInterval(tmr); let s=1500; tmr = setInterval(()=>{ s--; let m=Math.floor(s/60), rs=s%60; document.getElementById('timer-display').innerText=`${m}:${rs<10?'0'+rs:rs}`; if(s<=0){ clearInterval(tmr); alert("Focus time up! Take a break.");} }, 1000); }
     </script>
 </body>
 </html>
