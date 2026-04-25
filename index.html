@@ -370,7 +370,7 @@
             } else {
                 hlCanvas.classList.remove('unselectable'); 
                 textLayerDiv.classList.remove('selectable'); 
-                if(mode === 'crop') alert("🔍 Crop Search Mode Activated: Draw a box to search image/text on Google Lens.");
+                if(mode === 'crop') alert("🔍 Crop Search Mode Activated: Draw a box to crop image and search on Google Lens.");
             }
         }
 
@@ -413,19 +413,56 @@
             }
         }
 
+        // --- NEW SMART CROP & SEARCH LOGIC ---
         function extractAndSearchCrop(cssX, cssY, cssW, cssH) {
-            const rect = canvas.getBoundingClientRect(); const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
-            const realX = cssX * scaleX, realY = cssY * scaleY, realW = cssW * scaleX, realH = cssH * scaleY;
-            let offCanvas = document.createElement('canvas'); offCanvas.width = realW; offCanvas.height = realH;
+            const rect = canvas.getBoundingClientRect(); 
+            const scaleX = canvas.width / rect.width; 
+            const scaleY = canvas.height / rect.height;
+            
+            const realX = cssX * scaleX; 
+            const realY = cssY * scaleY; 
+            const realW = cssW * scaleX; 
+            const realH = cssH * scaleY;
+            
+            let offCanvas = document.createElement('canvas'); 
+            offCanvas.width = realW; 
+            offCanvas.height = realH;
             let offCtx = offCanvas.getContext('2d');
-            offCtx.fillStyle = "white"; offCtx.fillRect(0, 0, realW, realH);
-            offCtx.drawImage(canvas, realX, realY, realW, realH, 0, 0, realW, realH); offCtx.drawImage(hlCanvas, realX, realY, realW, realH, 0, 0, realW, realH);
+            
+            // White background
+            offCtx.fillStyle = "white"; 
+            offCtx.fillRect(0, 0, realW, realH);
+            
+            // Draw PDF and Highlights
+            offCtx.drawImage(canvas, realX, realY, realW, realH, 0, 0, realW, realH); 
+            offCtx.drawImage(hlCanvas, realX, realY, realW, realH, 0, 0, realW, realH);
+            
             offCanvas.toBlob(function(blob) {
-                const form = document.createElement('form'); form.method = 'POST'; form.action = 'https://lens.google.com/upload?ep=ccm'; form.target = '_blank'; form.enctype = 'multipart/form-data';
-                const fileInput = document.createElement('input'); fileInput.type = 'file'; fileInput.name = 'encoded_image';
-                const file = new File([blob], "crop.jpg", { type: "image/jpeg" }); const dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files;
-                form.appendChild(fileInput); document.body.appendChild(form); form.submit(); document.body.removeChild(form);
-            }, 'image/jpeg', 0.9);
+                // Smart Bypass: Copy to Clipboard -> Open Lens
+                try {
+                    const item = new ClipboardItem({ "image/png": blob });
+                    navigator.clipboard.write([item]).then(() => {
+                        alert("✅ Image copied!\n\nGoogle Lens naye tab me khul raha hai. Wahan search box me click karke bas PASTE (Ctrl+V) kar dijiye.");
+                        window.open("https://lens.google.com/", "_blank");
+                    }).catch(err => {
+                        fallbackDownload(blob);
+                    });
+                } catch (e) {
+                    fallbackDownload(blob);
+                }
+            }, 'image/png');
+        }
+
+        // Fallback for browsers that block clipboard API
+        function fallbackDownload(blob) {
+            alert("⬇️ Image gallery me download ho gayi hai!\n\nGoogle Lens khul raha hai, wahan ye photo upload karke search kar lijiye.");
+            let link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = "crop_search.png";
+            link.click();
+            setTimeout(() => {
+                window.open("https://lens.google.com/", "_blank");
+            }, 500);
         }
 
         function redrawAllStrokes(isActiveDrawing = false) {
