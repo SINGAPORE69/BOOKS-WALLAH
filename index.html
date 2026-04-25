@@ -3,319 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-Library by @RAJHARSH77</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#6c5ce7">
+    <title>Master E-Library | @RAJHARSH77</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <style>
-        :root { --bg-color: #f4f4f9; --text-color: #333; --card-bg: #fff; --primary: #6c5ce7; --accent: #ff7675; }
-        .dark-mode { --bg-color: #1e272e; --text-color: #d2dae2; --card-bg: #2f3640; --primary: #a29bfe; }
-        .sepia-mode { --bg-color: #f4ecd8; --text-color: #5b4636; --card-bg: #fdf6e3; --primary: #856751; }
+        :root { --primary: #6c5ce7; --bg: #f0f2f5; --card: #ffffff; --text: #2d3436; --accent: #ff7675; }
+        .dark-mode { --bg: #1e272e; --card: #2f3640; --text: #f5f6fa; --primary: #a29bfe; }
+        .sepia-mode { --bg: #f4ecd8; --card: #fdf6e3; --text: #5b4636; }
+
+        * { box-sizing: border-box; transition: 0.3s; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; overflow-x: hidden; }
+
+        /* Dashboard UI */
+        #dashboard { padding: 20px; max-width: 1200px; margin: auto; }
+        .header-ui { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; transition: 0.2s; }
-        body { background-color: var(--bg-color); color: var(--text-color); overflow-x: hidden; }
+        .search-box { position: relative; width: 100%; margin: 15px 0; }
+        #lib-search { width: 100%; padding: 15px 45px; border-radius: 30px; border: none; box-shadow: 0 4px 15px rgba(0,0,0,0.1); outline: none; }
+        .search-icon { position: absolute; left: 18px; top: 15px; color: #888; }
 
-        /* Loader & Splash */
-        #loader { position: fixed; inset: 0; background: #111; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
-        .spinner { width: 50px; height: 50px; border: 5px solid #333; border-top: 5px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .author-bar { display: flex; gap: 10px; overflow-x: auto; padding: 10px 0; scrollbar-width: none; }
+        .author-chip { background: var(--card); padding: 8px 18px; border-radius: 20px; cursor: pointer; border: 1px solid var(--primary); white-space: nowrap; font-weight: 500; }
 
-        /* Dashboard */
-        #dashboard { display: none; padding: 20px; max-width: 1200px; margin: auto; }
-        .header-main { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 2px solid #ddd; }
-        
-        .stat-btn { background: var(--card-bg); color: var(--primary); border: 2px solid var(--primary); padding: 10px; border-radius: 25px; cursor: pointer; font-weight: bold; flex-grow: 1; text-align: center; font-size: 0.8rem;}
-        .grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
-        .item-card { background: var(--card-bg); border-radius: 15px; padding: 15px; display: flex; gap: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); cursor: pointer; border: 1px solid rgba(0,0,0,0.05); }
-        .item-card img { width: 80px; height: 110px; object-fit: cover; border-radius: 8px; }
+        .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; margin-top: 20px; }
+        .book-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 20px rgba(0,0,0,0.05); cursor: pointer; }
+        .book-card img { width: 100%; height: 200px; object-fit: cover; }
+        .book-meta { padding: 10px; text-align: center; }
 
-        /* PDF Viewer */
-        #pdf-viewer-container { position: fixed; inset: 0; background: var(--bg-color); display: none; z-index: 1000; flex-direction: column; }
-        .toolbar { background: var(--card-bg); padding: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); flex-wrap: wrap; gap: 5px; overflow-x: auto; }
-        .toolbar-group { display: flex; gap: 5px; align-items: center; }
-        .tool-btn { background: #eee; border: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: #333; font-weight: bold; font-size: 0.85rem;}
+        /* Full-Featured Viewer */
+        #viewer-container { position: fixed; inset: 0; background: #2c3e50; display: none; flex-direction: column; z-index: 2000; }
+        .toolbar { background: var(--card); padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2); flex-wrap: wrap; gap: 8px; }
+        .tool-group { display: flex; gap: 8px; align-items: center; }
+        .tool-btn { background: #eee; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; color: #333; font-weight: bold; display: flex; align-items: center; gap: 5px; }
         .active-tool { background: var(--primary) !important; color: white !important; }
-        
-        .pdf-canvas-wrapper { flex-grow: 1; overflow-y: auto; display: flex; justify-content: center; padding: 20px; background: #333; position: relative; scroll-behavior: smooth; }
-        #canvas-container { position: relative; display: inline-block; }
-        #the-canvas { display: block; z-index: 1; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        #text-layer { z-index: 2; position: absolute; inset: 0; pointer-events: auto; opacity: 0.3; }
-        #highlight-canvas { z-index: 10; position: absolute; inset: 0; pointer-events: auto; opacity: 0.6; touch-action: none; }
-        
-        /* Filters */
-        .pdf-night-mode { filter: invert(1) hue-rotate(180deg); }
-        .pdf-sepia-mode { filter: sepia(0.6) brightness(0.9) contrast(1.1); }
-        .magic-reveal { opacity: 0.1 !important; }
 
-        /* Modals & Overlays */
-        .simple-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card-bg); padding: 20px; border-radius: 15px; box-shadow: 0 10px 50px rgba(0,0,0,0.5); z-index: 2000; width: 90%; max-width: 350px; text-align: center; }
-        #sync-status { position: fixed; top: 70px; right: 20px; background: #2ed573; color: white; padding: 5px 15px; border-radius: 20px; display: none; font-size: 0.8rem; z-index: 1001;}
+        .canvas-wrapper { flex: 1; overflow: auto; display: flex; justify-content: center; padding: 20px; background: #444; position: relative; }
+        #canvas-holder { position: relative; display: inline-block; box-shadow: 0 0 40px rgba(0,0,0,0.6); }
+        
+        /* Interactive Layers */
+        .pdf-canvas { display: block; background: white; }
+        #highlight-canvas { position: absolute; top: 0; left: 0; z-index: 10; cursor: crosshair; touch-action: none; opacity: 0.7; }
+        #text-layer { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; opacity: 0.2; }
+        #text-layer.active { pointer-events: auto; }
+        
+        /* Floating Lens & Crop */
+        .zoom-lens { position: absolute; width: 180px; height: 180px; border: 3px solid var(--primary); border-radius: 50%; pointer-events: none; display: none; z-index: 100; background-repeat: no-repeat; box-shadow: 0 0 25px rgba(0,0,0,0.4); }
+        #crop-box { position: absolute; border: 2px dashed #3498db; background: rgba(52, 152, 219, 0.2); display: none; z-index: 20; }
+
+        /* Utility Modals */
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--card); padding: 25px; border-radius: 15px; z-index: 3000; width: 320px; box-shadow: 0 10px 50px rgba(0,0,0,0.5); text-align: center; }
+        .pdf-night-mode { filter: invert(1) hue-rotate(180deg); }
+        .pdf-sepia-mode { filter: sepia(0.6) brightness(0.9); }
     </style>
 </head>
 <body>
 
-    <div id="loader">
-        <div class="spinner"></div>
-        <h2 style="margin-top:20px; text-align:center; padding:0 20px;">"प्रेम में सब त्यागने वाले अंत में प्रेम ही त्याग देते है"</h2>
-        <p style="margin-top:10px; opacity:0.6;">MADE BY ~ @RAJHARSH77</p>
-    </div>
-
     <div id="dashboard">
-        <header class="header-main">
-            <h1><i class="fas fa-book-reader"></i> E-Library</h1>
+        <div class="header-ui">
+            <h2><i class="fas fa-book-reader"></i> E-Library</h2>
             <div style="display:flex; gap:10px;">
                 <button class="tool-btn" onclick="toggleTheme('dark')"><i class="fas fa-moon"></i></button>
                 <button class="tool-btn" onclick="toggleTheme('sepia')"><i class="fas fa-eye"></i></button>
             </div>
-        </header>
-
-        <div class="user-stats-header">
-            <button class="stat-btn" onclick="showData('bookmarks')"><i class="fas fa-bookmark"></i> Bookmarks</button>
-            <button class="stat-btn" onclick="toggleModal('flashcard-modal')"><i class="fas fa-bolt"></i> Flashcards</button>
-            <button class="stat-btn" onclick="toggleModal('sync-modal')"><i class="fas fa-users"></i> Duo Sync</button>
         </div>
 
-        <div id="info-panel" style="display:none; background:var(--card-bg); padding:15px; border-radius:10px; margin-bottom:15px; border: 1px solid var(--primary);"></div>
+        <div class="search-box">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="lib-search" placeholder="Search by book or author..." onkeyup="searchBooks()">
+        </div>
 
-        <div class="grid-container" id="dynamic-grid"></div>
+        <div class="author-bar">
+            <div class="author-chip" onclick="searchBooks('Dharmveer')">Dharmveer Bharti</div>
+            <div class="author-chip" onclick="searchBooks('Rashmi')">Rashmi Sharma</div>
+            <div class="author-chip" onclick="searchBooks('Medical')">Anatomy/Med</div>
+            <div class="author-chip" onclick="searchBooks('')">All Books</div>
+        </div>
+
+        <div class="book-grid" id="main-grid"></div>
     </div>
 
-    <div id="pdf-viewer-container">
-        <div id="sync-status">Connected to Partner</div>
+    <div id="viewer-container">
         <div class="toolbar">
-            <div class="toolbar-group">
-                <button class="tool-btn" onclick="closePDF()"><i class="fas fa-home"></i></button>
-                <button class="tool-btn" onclick="sharePage()" style="background:#2ed573; color:white;"><i class="fas fa-share-alt"></i></button>
-            </div>
-            
-            <div class="toolbar-group">
-                <button class="tool-btn" id="prev"><i class="fas fa-arrow-left"></i></button>
-                <input type="number" id="pg-input" style="width:45px; border:1px solid #ccc; text-align:center;">
-                <button class="tool-btn" id="next"><i class="fas fa-arrow-right"></i></button>
+            <div class="tool-group">
+                <button class="tool-btn" onclick="closeViewer()"><i class="fas fa-arrow-left"></i></button>
+                <button class="tool-btn" onclick="shareSession()" style="background:#2ecc71; color:white;"><i class="fas fa-share-alt"></i></button>
             </div>
 
-            <div class="toolbar-group">
-                <button class="tool-btn" id="scroll-btn" onclick="toggleAutoScroll()"><i class="fas fa-play"></i></button>
-                <button class="tool-btn" onclick="toggleTTS()" id="tts-btn" style="background:#f1c40f;"><i class="fas fa-volume-up"></i></button>
-                <button class="tool-btn" onclick="toggleMagicReveal()" title="Reveal Magic Marks"><i class="fas fa-magic"></i></button>
+            <div class="tool-group">
+                <button class="tool-btn" onclick="changePage(-1)"><i class="fas fa-chevron-left"></i></button>
+                <span id="pg-info" style="font-weight:bold;">1 / 1</span>
+                <button class="tool-btn" onclick="changePage(1)"><i class="fas fa-chevron-right"></i></button>
             </div>
-            
-            <div class="toolbar-group">
-                <button class="tool-btn" onclick="startVoiceRecord()" id="mic-btn" title="Voice Note"><i class="fas fa-microphone"></i></button>
-                <button class="tool-btn" onclick="setMode('draw', '#ffff00')" style="background:#ffff00;"></button>
-                <button class="tool-btn" onclick="setMode('draw', '#000000')" style="background:#000; color:white;" title="Magic Marker"></button>
-                <button class="tool-btn" onclick="setMode('draw', 'eraser')"><i class="fas fa-eraser"></i></button>
+
+            <div class="tool-group">
+                <button class="tool-btn" id="tts-btn" onclick="toggleTTS()" style="background:#f1c40f;"><i class="fas fa-volume-up"></i> Listen</button>
+                <button class="tool-btn" onclick="setTool('crop')" id="crop-btn" style="background:#3498db; color:white;"><i class="fas fa-crop"></i> Lens</button>
+                <button class="tool-btn" onclick="setTool('text')" id="text-btn"><i class="fas fa-i-cursor"></i> Copy</button>
+            </div>
+
+            <div class="tool-group">
+                <button class="color-btn" style="background:#ffff00; width:25px; height:25px; border-radius:50%; border:1px solid #ccc; cursor:pointer;" onclick="setTool('draw', '#ffff00')"></button>
+                <button class="color-btn" style="background:#ff7675; width:25px; height:25px; border-radius:50%; border:1px solid #ccc; cursor:pointer;" onclick="setTool('draw', '#ff7675')"></button>
+                <button class="tool-btn" onclick="setTool('draw', 'eraser')"><i class="fas fa-eraser"></i></button>
             </div>
         </div>
 
-        <div class="pdf-canvas-wrapper" id="canvas-wrapper">
-            <div id="canvas-container">
-                <canvas id="the-canvas"></canvas>
+        <div class="canvas-wrapper" id="canvas-wrapper">
+            <div id="canvas-holder">
+                <canvas id="main-canvas" class="pdf-canvas"></canvas>
                 <div id="text-layer"></div>
                 <canvas id="highlight-canvas"></canvas>
+                <div id="crop-box"></div>
+                <div id="zoom-lens" class="zoom-lens"></div>
             </div>
         </div>
-    </div>
-
-    <div id="flashcard-modal" class="simple-modal">
-        <h3>My Flashcards</h3>
-        <div id="flash-list" style="margin:15px 0; max-height:200px; overflow-y:auto; text-align:left;"></div>
-        <button class="tool-btn" onclick="toggleModal('flashcard-modal')">Close</button>
-    </div>
-
-    <div id="sync-modal" class="simple-modal">
-        <h3>Duo Reading Sync</h3>
-        <p style="font-size:0.8rem; margin:10px 0;">Apna progress partner ke sath sync karein.</p>
-        <button class="tool-btn" onclick="initSyncHost()">Generate Room ID</button>
-        <input type="text" id="sync-input" placeholder="Enter Room ID" style="width:100%; margin:10px 0; padding:8px;">
-        <button class="tool-btn" style="background:var(--primary); color:white;" onclick="joinSyncRoom()">Join Room</button>
-        <p id="room-display" style="margin-top:10px; font-weight:bold;"></p>
-        <button class="tool-btn" onclick="toggleModal('sync-modal')">Close</button>
     </div>
 
     <script>
-        const libraryData = [
-            { id: 'book1', title: 'गुनाहों का देवता', img: 'https://m.media-amazon.com/images/I/71hemS2gvNL._AC_UF1000,1000_QL80_FMwebp_.jpg', url: 'ae0ac329-bc71-4375-b7af-db6bc9e70b38190406115658-tmp2A1B..pdf' },
-            { id: 'book2', title: 'बंद कोठरी का दरवाजा', img: 'https://m.media-amazon.com/images/I/614NAsRy-ML._UF1000,1000_QL80_FMwebp_.jpg', url: 'https://primespot.koyeb.app/14244?hash=AgADTR&download=true' }
+        const library = [
+            { id: 1, title: 'गुनाहों का देवता', author: 'Dharmveer Bharti', img: 'https://m.media-amazon.com/images/I/71hemS2gvNL.jpg', url: 'ae0ac329-bc71-4375-b7af-db6bc9e70b38190406115658-tmp2A1B..pdf' },
+            { id: 2, title: 'बंद कोठरी का दरवाजा', author: 'Rashmi Sharma', img: 'https://m.media-amazon.com/images/I/614NAsRy-ML.jpg', url: 'https://primespot.koyeb.app/14244?hash=AgADTR&download=true' }
         ];
 
-        let pdfDoc = null, pageNum = 1, currentBookId = '', currentPageText = '';
-        const canvas = document.getElementById('the-canvas'), ctx = canvas.getContext('2d');
+        let pdfDoc = null, pageNum = 1, currentBookId = '', scale = 2.0; // HD Scale
+        const canvas = document.getElementById('main-canvas'), ctx = canvas.getContext('2d');
         const hlCanvas = document.getElementById('highlight-canvas'), hlCtx = hlCanvas.getContext('2d');
         const textLayer = document.getElementById('text-layer');
-        const canvasWrapper = document.getElementById('canvas-wrapper');
 
-        // PWA & PeerJS Setup
-        let peer = null, conn = null;
-
-        window.onload = () => {
-            renderLibrary();
-            setTimeout(() => document.getElementById('loader').style.display = 'none', 2000);
-            document.getElementById('dashboard').style.display = 'block';
-            
-            // Feature: Quick Glossary on Double Click
-            textLayer.addEventListener('dblclick', (e) => {
-                let sel = window.getSelection().toString().trim();
-                if(sel) window.open(`https://www.google.com/search?q=${sel}+meaning+in+hindi`, '_blank');
-            });
-        };
-
-        function renderLibrary() {
-            const grid = document.getElementById('dynamic-grid');
-            libraryData.forEach(book => {
-                grid.innerHTML += `<div class="item-card" onclick="openPDF('${book.id}', '${book.url}')">
-                    <img src="${book.img}"><div style="flex:1"><h3>${book.title}</h3><p style="opacity:0.6; font-size:0.8rem;">Click to Read</p></div>
-                </div>`;
-            });
+        // 1. Dashboard Logic
+        function renderLibrary(books = library) {
+            const grid = document.getElementById('main-grid');
+            grid.innerHTML = books.map(b => `
+                <div class="book-card" onclick="openBook('${b.id}', '${b.url}')">
+                    <img src="${b.img}">
+                    <div class="book-meta"><h4>${b.title}</h4><p style="font-size:0.7rem; color:gray;">${b.author}</p></div>
+                </div>
+            `).join('');
         }
 
+        function searchBooks(tag = '') {
+            const q = tag || document.getElementById('lib-search').value.toLowerCase();
+            const filtered = library.filter(b => b.title.toLowerCase().includes(q.toLowerCase()) || b.author.toLowerCase().includes(q.toLowerCase()));
+            renderLibrary(filtered);
+        }
+
+        // 2. Master PDF Engine
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
-        async function openPDF(bookId, url, startPg = 1) {
+        async function openBook(id, url) {
             document.getElementById('dashboard').style.display = 'none';
-            document.getElementById('pdf-viewer-container').style.display = 'flex';
-            currentBookId = bookId; pageNum = parseInt(startPg);
-            const task = pdfjsLib.getDocument(url);
-            pdfDoc = await task.promise;
-            document.getElementById('pg-input').max = pdfDoc.numPages;
+            document.getElementById('viewer-container').style.display = 'flex';
+            currentBookId = id;
+            
+            const loadingTask = pdfjsLib.getDocument(url);
+            pdfDoc = await loadingTask.promise;
+            document.getElementById('pg-info').innerText = `1 / ${pdfDoc.numPages}`;
+            pageNum = parseInt(localStorage.getItem('progress_' + id)) || 1;
             renderPage(pageNum);
         }
 
         async function renderPage(num) {
             const page = await pdfDoc.getPage(num);
-            const wrapperWidth = canvasWrapper.clientWidth - 40;
-            const vp = page.getViewport({ scale: wrapperWidth / page.getViewport({scale:1}).width });
+            const dpr = window.devicePixelRatio || 1;
+            const viewport = page.getViewport({ scale: scale });
+
+            canvas.height = viewport.height * dpr; canvas.width = viewport.width * dpr;
+            canvas.style.width = viewport.width + "px"; canvas.style.height = viewport.height + "px";
             
-            canvas.height = vp.height; canvas.width = vp.width;
-            hlCanvas.height = vp.height; hlCanvas.width = vp.width;
-            textLayer.style.height = `${vp.height}px`; textLayer.style.width = `${vp.width}px`;
+            hlCanvas.width = canvas.width; hlCanvas.height = canvas.height;
+            hlCanvas.style.width = canvas.style.width; hlCanvas.style.height = canvas.style.height;
+
+            const renderCtx = { canvasContext: ctx, transform: [dpr, 0, 0, dpr, 0, 0], viewport: viewport };
+            await page.render(renderCtx).promise;
             
-            await page.render({ canvasContext: ctx, viewport: vp }).promise;
-            const content = await page.getTextContent();
-            currentPageText = content.items.map(i => i.str).join(' ');
-            pdfjsLib.renderTextLayer({ textContent: content, container: textLayer, viewport: vp, textDivs: [] });
+            // Text layer for selection
+            textLayer.style.width = canvas.style.width; textLayer.style.height = canvas.style.height;
+            textLayer.innerHTML = '';
+            const textContent = await page.getTextContent();
+            pdfjsLib.renderTextLayer({ textContent, container: textLayer, viewport, textDivs: [] });
             
-            document.getElementById('pg-input').value = num;
+            document.getElementById('pg-info').innerText = `${num} / ${pdfDoc.numPages}`;
             loadHighlights();
-            if(conn) conn.send({type: 'page', num: num});
+            localStorage.setItem('progress_' + currentBookId, num);
         }
 
-        document.getElementById('prev').onclick = () => { if(pageNum > 1) renderPage(--pageNum); };
-        document.getElementById('next').onclick = () => { if(pageNum < pdfDoc.numPages) renderPage(++pageNum); };
-        document.getElementById('pg-input').onchange = (e) => { 
-            let v = parseInt(e.target.value);
-            if(v >= 1 && v <= pdfDoc.numPages) { pageNum = v; renderPage(pageNum); }
-        };
-
-        // --- DUO SYNC LOGIC ---
-        function initSyncHost() {
-            peer = new Peer();
-            peer.on('open', id => {
-                document.getElementById('room-display').innerText = "ID: " + id;
-                alert("Room ID Copy Karein: " + id);
-            });
-            peer.on('connection', c => {
-                conn = c;
-                setupConn();
-                alert("Partner Connected!");
-            });
+        function changePage(delta) {
+            if (pageNum + delta < 1 || pageNum + delta > pdfDoc.numPages) return;
+            pageNum += delta; renderPage(pageNum);
         }
 
-        function joinSyncRoom() {
-            const id = document.getElementById('sync-input').value;
-            peer = new Peer();
-            peer.on('open', () => {
-                conn = peer.connect(id);
-                setupConn();
-            });
-        }
-
-        function setupConn() {
-            document.getElementById('sync-status').style.display = 'block';
-            conn.on('data', data => {
-                if(data.type === 'page') { pageNum = data.num; renderPage(pageNum); }
-            });
-        }
-
-        // --- TOOLS: MAGIC, AUTO-SCROLL, TTS ---
-        function toggleMagicReveal() { hlCanvas.classList.toggle('magic-reveal'); }
-        
-        let scrollInterval = null;
-        function toggleAutoScroll() {
-            const btn = document.getElementById('scroll-btn');
-            if(!scrollInterval) {
-                scrollInterval = setInterval(() => canvasWrapper.scrollTop += 1, 50);
-                btn.innerHTML = `<i class="fas fa-pause"></i>`;
-            } else { clearInterval(scrollInterval); scrollInterval = null; btn.innerHTML = `<i class="fas fa-play"></i>`; }
-        }
-
-        let speech = new SpeechSynthesisUtterance();
-        function toggleTTS() {
-            if(!window.speechSynthesis.speaking) {
-                speech.text = currentPageText; speech.lang = 'hi-IN';
-                window.speechSynthesis.speak(speech);
-                document.getElementById('tts-btn').innerHTML = `<i class="fas fa-stop"></i>`;
-            } else { window.speechSynthesis.cancel(); document.getElementById('tts-btn').innerHTML = `<i class="fas fa-volume-up"></i>`; }
-        }
-
-        // --- VOICE NOTES (INDEXED DB) ---
-        function startVoiceRecord() {
-            alert("Mic feature active. IndexedDB mein audio save ho raha hai...");
-            // Basic implementation logic for UI feedback
-            document.getElementById('mic-btn').style.color = 'red';
-            setTimeout(() => document.getElementById('mic-btn').style.color = '', 3000);
-        }
-
-        // --- UTILS ---
-        function toggleTheme(mode) {
-            document.body.classList.remove('dark-mode', 'sepia-mode');
-            canvas.classList.remove('pdf-night-mode', 'pdf-sepia-mode');
-            if(mode === 'dark') { document.body.classList.add('dark-mode'); canvas.classList.add('pdf-night-mode'); }
-            else if(mode === 'sepia') { document.body.classList.add('sepia-mode'); canvas.classList.add('pdf-sepia-mode'); }
-        }
-
-        function toggleModal(id) { const m = document.getElementById(id); m.style.display = (m.style.display==='block')?'none':'block'; }
-
-        function closePDF() {
-            window.speechSynthesis.cancel();
-            document.getElementById('pdf-viewer-container').style.display = 'none';
+        function closeViewer() {
+            document.getElementById('viewer-container').style.display = 'none';
             document.getElementById('dashboard').style.display = 'block';
+            window.speechSynthesis.cancel();
         }
 
-        function sharePage() {
-            const url = `${window.location.origin}${window.location.pathname}?book=${currentBookId}&page=${pageNum}`;
-            navigator.share({title: 'E-Library', url});
+        // 3. Advanced Highlighting & Tools
+        let tool = 'draw', isDrawing = false, color = '#ffff00', strokes = [];
+        function setTool(t, c) {
+            tool = t; if(c) color = c;
+            textLayer.classList.toggle('active', t === 'text');
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active-tool'));
+            if(t==='text') document.getElementById('text-btn').classList.add('active-tool');
+            if(t==='crop') document.getElementById('crop-btn').classList.add('active-tool');
         }
 
-        // Annotations
-        let isDrawing = false, currentColor = '#ffff00', strokes = [];
-        function getPos(e) { 
-            const r = hlCanvas.getBoundingClientRect(); 
+        function getPos(e) {
+            const r = hlCanvas.getBoundingClientRect();
             let x = e.touches ? e.touches[0].clientX : e.clientX;
             let y = e.touches ? e.touches[0].clientY : e.clientY;
-            return { nx: (x-r.left)/r.width, ny: (y-r.top)/r.height }; 
+            return { nx: (x - r.left) / r.width, ny: (y - r.top) / r.height, px: x - r.left, py: y - r.top };
         }
-        function setMode(m, c) { currentColor = c; alert(m + " activated"); }
-        hlCanvas.onmousedown = (e) => { isDrawing = true; strokes.push({color: currentColor, pts: [getPos(e)]}); };
-        hlCanvas.onmousemove = (e) => { if(isDrawing) { strokes[strokes.length-1].pts.push(getPos(e)); redraw(); } };
-        hlCanvas.onmouseup = () => { isDrawing = false; localStorage.setItem(`hl_${currentBookId}_p${pageNum}`, JSON.stringify(strokes)); };
-        
+
+        hlCanvas.onmousedown = hlCanvas.ontouchstart = (e) => {
+            if(tool === 'text') return;
+            isDrawing = true; const p = getPos(e);
+            if(tool === 'draw') strokes.push({ color, points: [p] });
+            if(tool === 'crop') { 
+                cropStart = p; 
+                document.getElementById('crop-box').style.display = 'block';
+            }
+        };
+
+        hlCanvas.onmousemove = hlCanvas.ontouchmove = (e) => {
+            if(!isDrawing || tool === 'text') return;
+            const p = getPos(e);
+            if(tool === 'draw') { strokes[strokes.length-1].points.push(p); redraw(); }
+            if(tool === 'crop') {
+                const box = document.getElementById('crop-box');
+                box.style.left = Math.min(p.px, cropStart.px) + 'px';
+                box.style.top = Math.min(p.py, cropStart.py) + 'px';
+                box.style.width = Math.abs(p.px - cropStart.px) + 'px';
+                box.style.height = Math.abs(p.py - cropStart.py) + 'px';
+            }
+        };
+
+        hlCanvas.onmouseup = hlCanvas.ontouchend = () => {
+            if(tool === 'crop' && isDrawing) {
+                const box = document.getElementById('crop-box');
+                extractCrop(parseInt(box.style.left), parseInt(box.style.top), parseInt(box.style.width), parseInt(box.style.height));
+                box.style.display = 'none';
+            }
+            isDrawing = false;
+            saveHighlights();
+        };
+
         function redraw() {
             hlCtx.clearRect(0,0,hlCanvas.width,hlCanvas.height);
+            const dpr = window.devicePixelRatio || 1;
             strokes.forEach(s => {
-                hlCtx.globalCompositeOperation = (s.color==='eraser') ? 'destination-out' : 'source-over';
-                hlCtx.strokeStyle = s.color; hlCtx.lineWidth = 15; hlCtx.lineCap = "round"; hlCtx.beginPath();
-                s.pts.forEach((p, i) => { 
-                    let ax = p.nx * hlCanvas.width, ay = p.ny * hlCanvas.height;
-                    if(i===0) hlCtx.moveTo(ax,ay); else hlCtx.lineTo(ax,ay);
-                }); hlCtx.stroke();
+                hlCtx.globalCompositeOperation = s.color === 'eraser' ? 'destination-out' : 'source-over';
+                hlCtx.strokeStyle = s.color; hlCtx.lineWidth = 15 * dpr; hlCtx.lineCap = 'round';
+                hlCtx.beginPath();
+                s.points.forEach((p, i) => {
+                    const x = p.nx * hlCanvas.width, y = p.ny * hlCanvas.height;
+                    if(i===0) hlCtx.moveTo(x, y); else hlCtx.lineTo(x, y);
+                });
+                hlCtx.stroke();
             });
         }
+
+        function saveHighlights() { localStorage.setItem(`hl_${currentBookId}_p${pageNum}`, JSON.stringify(strokes)); }
         function loadHighlights() { strokes = JSON.parse(localStorage.getItem(`hl_${currentBookId}_p${pageNum}`) || '[]'); redraw(); }
+
+        // 4. Audiobook & Deep Share
+        function toggleTTS() {
+            if(window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); return; }
+            const utterance = new SpeechSynthesisUtterance(textLayer.innerText);
+            utterance.lang = 'hi-IN'; window.speechSynthesis.speak(utterance);
+        }
+
+        function extractCrop(x, y, w, h) {
+            const dpr = window.devicePixelRatio || 1;
+            const off = document.createElement('canvas'); off.width = w*dpr; off.height = h*dpr;
+            off.getContext('2d').drawImage(canvas, x*dpr, y*dpr, w*dpr, h*dpr, 0, 0, w*dpr, h*dpr);
+            off.toBlob(b => {
+                navigator.clipboard.write([new ClipboardItem({"image/png":b})]).then(() => {
+                    alert("Cropped! Paste in Google Lens."); window.open("https://lens.google.com/", "_blank");
+                });
+            });
+        }
+
+        function toggleTheme(m) {
+            document.body.className = m + '-mode';
+            canvas.className = 'pdf-canvas pdf-' + m + '-mode';
+        }
+
+        window.onload = () => renderLibrary();
     </script>
 </body>
 </html>
